@@ -1,3 +1,4 @@
+import { run as phantomjs } from 'phantomjs-prebuilt';
 import { remote } from 'webdriverio';
 import fs from 'fs';
 import path from 'path';
@@ -9,8 +10,11 @@ import carsFilter from './scraper-filters/carsFilter';
 
 const writeFile = promisify(fs.writeFile);
 
-const username = process.env.IWP_USERNAME || 'test';
-const password = process.env.IWP_PASSWORD || 'test';
+const username = process.env.IWP_USERNAME;
+const password = process.env.IWP_PASSWORD;
+
+if (!username) throw "Please set environment variable IWP_USERNAME to your iRacing username";
+if (!password) throw "Please set environment variable IWP_PASSWORD to your iRacing password";
 
 const extractJSONString = (sourceLines, variableName, fileName, filter = (a) => a) => {
   const regexp = new RegExp(`^var ${variableName} = extractJSON\\('`);
@@ -28,10 +32,9 @@ const extractJSONString = (sourceLines, variableName, fileName, filter = (a) => 
   writeFile(path.join(__dirname, fileName), JSON.stringify(filteredListing, null, 2));
 };
 
-(async () => {
+phantomjs('--webdriver=4444').then(async program => {
   const browser = await remote({
     logLevel: 'error',
-    // desiredCapabilities: { browserName: 'phantomjs' },
     capabilities: {
         browserName: 'phantomjs'
     }
@@ -64,4 +67,5 @@ const extractJSONString = (sourceLines, variableName, fileName, filter = (a) => 
   extractJSONString(sourceLines, 'SeasonListing', '../src/data/season.json', seasonFilter);
   
   await browser.deleteSession();
-})().catch((e) => console.error(e));
+  program.kill();
+});
